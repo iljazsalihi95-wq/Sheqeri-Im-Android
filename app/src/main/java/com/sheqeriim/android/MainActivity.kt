@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
             var readingInput by remember { mutableStateOf("") }
             var readingNote by remember { mutableStateOf("") }
             var mealContext by remember { mutableStateOf("Pas ushqimit") }
+            var confirmedPlan by remember { mutableStateOf(false) }
             var readings by remember { mutableStateOf(glucoseStore.all()) }
             var saveMessage by remember { mutableStateOf("") }
             var medicationName by remember { mutableStateOf("") }
@@ -130,6 +131,22 @@ class MainActivity : ComponentActivity() {
                                                 Text(option, fontSize = 11.sp, color = if (mealContext == option) Cyan else Color.LightGray)
                                             }
                                         }
+                                    }
+                                }
+                                item {
+                                    val entered = readingInput.toIntOrNull()
+                                    if (entered != null && entered in 20..600 && mealContext == "Para ushqimit") {
+                                        val chart = PhysicianPlan.lookup(entered)
+                                        Card(colors = CardDefaults.cardColors(containerColor = if (chart.attention) Color(0xFF56242B) else Color(0xFF174936))) {
+                                            Column(Modifier.padding(14.dp)) {
+                                                Text("TABELA E MJEKUT · 13.10.2026", color = Color.White, fontSize = 13.sp)
+                                                Text(chart.range, color = Color.White)
+                                                Text("Në recetë: ${chart.documentedUnits} njësi Humalog", color = Color.White, fontSize = 19.sp)
+                                                Text("Vetëm referencë e recetës, jo udhëzim për injektim. Verifiko planin aktual dhe kushtet e matjes.", color = Color.White, fontSize = 12.sp)
+                                            }
+                                        }
+                                    } else if (entered != null) {
+                                        Text("Tabela e Humalog vlen vetëm për matje PARA ushqimit. Nuk llogaritet dozë.", color = Cyan)
                                     }
                                 }
                                 item {
