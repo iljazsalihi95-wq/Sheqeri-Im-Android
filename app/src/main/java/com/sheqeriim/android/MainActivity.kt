@@ -96,10 +96,28 @@ class MainActivity : ComponentActivity() {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         when (page) {
                             "home" -> {
-                                item { InfoCard("Glucose / Blutzucker", readings.firstOrNull()?.let { "${it.valueMgDl} mg/dL" } ?: "— mg/dL", if (readings.isEmpty()) "No measurements saved yet" else "${readings.size} locally saved measurements") }
-                                item { InfoCard("Bluetooth", "Accu-Chek Guide", "Open Bluetooth tab to discover nearby devices") }
-                                item { InfoCard("Vlerësimi i fundit", readings.firstOrNull()?.let { GlucoseEducation.message(it.valueMgDl, language) } ?: "Shto një matje", "Informacion orientues, jo diagnozë.") }
-                                item { InfoCard("Status", "Native Android prototype", "Account, storage, chart and automatic sync are still in development") }
+                                item {
+                                    Card(colors = CardDefaults.cardColors(containerColor = Panel), modifier = Modifier.fillMaxWidth(), onClick = { page = "readings" }) {
+                                        Column(Modifier.padding(18.dp)) {
+                                            Text("Sheqeri në gjak · mg/dL", color = Cyan)
+                                            Spacer(Modifier.height(8.dp))
+                                            Text(readings.firstOrNull()?.let { "${it.valueMgDl} mg/dL" } ?: "Shto matjen e parë →", color = Color.White, fontSize = 23.sp)
+                                            Text("Prek për të regjistruar ose parë matjet", color = Color.LightGray)
+                                        }
+                                    }
+                                }
+                                item {
+                                    Card(colors = CardDefaults.cardColors(containerColor = Panel), modifier = Modifier.fillMaxWidth(), onClick = { page = "bluetooth" }) {
+                                        Column(Modifier.padding(18.dp)) {
+                                            Text("Accu-Chek Guide · Roche 921", color = Cyan, fontSize = 16.sp)
+                                            Spacer(Modifier.height(8.dp))
+                                            Text("Lidhe glukometrin →", color = Color.White, fontSize = 20.sp)
+                                            Text("Çiftimi Bluetooth dhe statusi i lidhjes", color = Color.LightGray)
+                                        }
+                                    }
+                                }
+                                item { InfoCard("Vlerësimi i fundit", readings.firstOrNull()?.let { GlucoseEducation.message(it.valueMgDl, language) } ?: "Prek kartën e matjeve për të shtuar matjen e parë", "Informacion orientues, jo diagnozë.") }
+                                item { InfoCard("Gjendja e sistemit", "Matjet manuale aktive", "Importi Bluetooth ende nuk është verifikuar me pajisjen.") }
                             }
                             "bluetooth" -> {
                                 item { InfoCard("Accu-Chek Guide", "Roche · Model 921 · mg/dL", "Native Bluetooth GATT. Importi i matjeve nuk është verifikuar ende.") }
