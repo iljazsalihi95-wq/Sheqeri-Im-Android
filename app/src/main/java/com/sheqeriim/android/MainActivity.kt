@@ -9,6 +9,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,11 +33,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         bluetooth = GlucoseBluetooth(this)
+        val glucoseStore = GlucoseStore(this)
         setContent {
             var language by remember { mutableStateOf("sq") }
             var page by remember { mutableStateOf("home") }
             var devices by remember { mutableStateOf(listOf<String>()) }
             var message by remember { mutableStateOf("") }
+            var readingInput by remember { mutableStateOf("") }
+            var readingNote by remember { mutableStateOf("") }
+            var readings by remember { mutableStateOf(glucoseStore.all()) }
+            var saveMessage by remember { mutableStateOf("") }
             val permissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions()
             ) { result -> message = if (result.values.all { it }) "Bluetooth permission granted" else "Bluetooth permission denied" }
@@ -61,7 +71,7 @@ class MainActivity : ComponentActivity() {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         when (page) {
                             "home" -> {
-                                item { InfoCard("Glucose / Blutzucker", "— mg/dL", "No measurement imported yet") }
+                                item { InfoCard("Glucose / Blutzucker", readings.firstOrNull()?.let { "${it.valueMgDl} mg/dL" } ?: "— mg/dL", if (readings.isEmpty()) "No measurements saved yet" else "${readings.size} locally saved measurements") }
                                 item { InfoCard("Bluetooth", "Accu-Chek Guide", "Open Bluetooth tab to discover nearby devices") }
                                 item { InfoCard("Status", "Native Android prototype", "Account, storage, chart and automatic sync are still in development") }
                             }
@@ -85,7 +95,36 @@ class MainActivity : ComponentActivity() {
                                 item { Text(message, color = Color.White) }
                                 items(devices) { Text("📶 $it", color = Cyan) }
                             }
-                            "readings" -> item { InfoCard("Matjet / Messungen", "In development", "No automatic measurements are shown until BLE sync is verified") }
+                            "readings" -> {
+                                item { InfoCard("Matjet / Messungen", "Manual entry", "Measurements are saved only on this device. BLE import is not yet available.") }
+                                item {
+                                    OutlinedTextField(value = readingInput, onValueChange = { readingInput = it.filter(Char::isDigit).take(3) },
+                                        label = { Text("Glucose (mg/dL)") }, singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedLabelColor = Cyan, unfocusedLabelColor = Cyan))
+                                }
+                                item {
+                                    OutlinedTextField(value = readingNote, onValueChange = { readingNote = it.take(120) },
+                                        label = { Text("Note / Shënim") },
+                                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedLabelColor = Cyan, unfocusedLabelColor = Cyan))
+                                }
+                                item {
+                                    Button(onClick = {
+                                        val value = readingInput.toIntOrNull()
+                                        if (value != null && glucoseStore.add(value, readingNote)) {
+                                            readings = glucoseStore.all()
+                                            readingInput = ""
+                                            readingNote = ""
+                                            saveMessage = "Measurement saved locally"
+                                        } else saveMessage = "Enter a value from 20 to 600 mg/dL"
+                                    }) { Text("Ruaj matjen / Speichern") }
+                                }
+                                item { Text(saveMessage, color = Cyan) }
+                                items(readings) { reading ->
+                                    val date = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY).format(Date(reading.timeMillis))
+                                    InfoCard(date, "${reading.valueMgDl} mg/dL", reading.note.ifBlank { "Manual entry" })
+                                }
+                            }
                             "meds" -> item { InfoCard("Barnat / Medikamente", "In development", "Medication logging and reminders are not yet enabled") }
                             "report" -> item { InfoCard("Ärztlicher Bericht", "Deutsch PDF", "German doctor report is planned; no clinical data available in this prototype") }
                         }
