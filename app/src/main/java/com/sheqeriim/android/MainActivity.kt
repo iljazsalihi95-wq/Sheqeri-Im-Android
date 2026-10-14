@@ -135,6 +135,19 @@ class MainActivity : ComponentActivity() {
                                 }
                                 item {
                                     val entered = readingInput.toIntOrNull()
+                                    if (entered != null && entered in 20..600) {
+                                        val interpretation = when {
+                                            entered < 70 -> "🔴 Sheqer i ulët: trajto hipoglikeminë sipas planit të mjekut, mat përsëri pas 15 minutash. Nëse je i hutuar ose s'mund të gëlltisësh, kërko ndihmë urgjente."
+                                            entered < 80 -> "🟠 Afër kufirit të ulët: kontrollo simptomat dhe ndiq planin personal."
+                                            mealContext == "Para ushqimit" && entered <= 130 -> "🟢 Brenda intervalit të zakonshëm para ushqimit (80–130 mg/dL)."
+                                            mealContext == "Para ushqimit" -> "🟠 Mbi intervalin e zakonshëm para ushqimit; krahasoje me objektivin e mjekut."
+                                            entered <= 180 -> "🟢 Vlerë përgjithësisht qetësuese pas ushqimit; interpretimi varet nga koha që ka kaluar."
+                                            else -> "🟠 Vlerë e ngritur; kontrollo kohën pas vaktit dhe udhëzimet e mjekut."
+                                        }
+                                        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF182B3C))) {
+                                            Text(interpretation, modifier = Modifier.padding(14.dp), color = Color.White)
+                                        }
+                                    }
                                     if (entered != null && entered in 20..600 && mealContext == "Para ushqimit") {
                                         val chart = PhysicianPlan.lookup(entered)
                                         Card(colors = CardDefaults.cardColors(containerColor = if (chart.attention) Color(0xFF56242B) else Color(0xFF174936))) {
