@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -34,6 +35,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         bluetooth = GlucoseBluetooth(this)
         val glucoseStore = GlucoseStore(this)
+        val medicationStore = MedicationStore(this)
         setContent {
             var language by remember { mutableStateOf("sq") }
             var page by remember { mutableStateOf("home") }
@@ -43,6 +45,22 @@ class MainActivity : ComponentActivity() {
             var readingNote by remember { mutableStateOf("") }
             var readings by remember { mutableStateOf(glucoseStore.all()) }
             var saveMessage by remember { mutableStateOf("") }
+            var medicationName by remember { mutableStateOf("") }
+            var medicationDose by remember { mutableStateOf("") }
+            var medicationEntries by remember { mutableStateOf(medicationStore.all()) }
+            var reportStatus by remember { mutableStateOf("") }
+            val pdfLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.CreateDocument("application/pdf")
+            ) { uri ->
+                if (uri != null) {
+                    try {
+                        DoctorReport.write(this, uri, glucoseStore.all(), medicationStore.all())
+                        reportStatus = "PDF gespeichert / Raporti u ruajt"
+                    } catch (e: Exception) {
+                        reportStatus = "PDF error: ${e.message ?: "unknown"}"
+                    }
+                }
+            }
             val permissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions()
             ) { result -> message = if (result.values.all { it }) "Bluetooth permission granted" else "Bluetooth permission denied" }
@@ -125,7 +143,36 @@ class MainActivity : ComponentActivity() {
                                     InfoCard(date, "${reading.valueMgDl} mg/dL", reading.note.ifBlank { "Manual entry" })
                                 }
                             }
-                            "meds" -> item { InfoCard("Barnat / Medikamente", "In development", "Medication logging and reminders are not yet enabled") }
+                            "meds" -> {
+                                item { InfoCard("Barnat / Medikamente", "Medication journal", "Log what you actually took. This app does not calculate insulin doses.") }
+                                item {
+                                    OutlinedTextField(value = medicationName, onValueChange = { medicationName = it.take(80) },
+                                        label = { Text("Emri / Medikament") },
+                                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                                }
+                                item {
+                                    OutlinedTextField(value = medicationDose, onValueChange = { medicationDose = it.take(60) },
+                                        label = { Text("Doza e marrë / Eingenommene Dosis") },
+                                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+                                }
+                                item {
+                                    Button(onClick = {
+                                        if (medicationStore.add(medicationName, medicationDose)) {
+                                            medicationEntries = medicationStore.all()
+                                            medicationName = ""
+                                            medicationDose = ""
+                                        }
+                                    }) { Text("Ruaj / Speichern") }
+                                }
+                                items(medicationEntries) { entry ->
+                                    InfoCard(entry.name, entry.dose, SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY).format(Date(entry.timeMillis)))
+                                }
+                            }
+                            "report" -> {
+                                item { InfoCard("Ärztlicher Bericht", "PDF auf Deutsch", "Exportiert lokal erfasste Messungen und Medikamenteneinträge.") }
+                                item { Button(onClick = { pdfLauncher.launch("Sheqeri-Im-Arztbericht.pdf") }) { Text("PDF erstellen / Krijo raportin") } }
+                                item { Text(reportStatus, color = Cyan) }
+                            }
                             "report" -> item { InfoCard("Ärztlicher Bericht", "Deutsch PDF", "German doctor report is planned; no clinical data available in this prototype") }
                         }
                     }
