@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             var language by remember { mutableStateOf("sq") }
             var page by remember { mutableStateOf("home") }
-            var devices by remember { mutableStateOf(listOf<String>()) }
+            var devices by remember { mutableStateOf(listOf<Pair<String, String>>()) }
             var pairedMeters by remember { mutableStateOf(bluetooth.pairedDevices()) }
             var message by remember { mutableStateOf("") }
             var readingInput by remember { mutableStateOf("") }
@@ -116,8 +116,8 @@ class MainActivity : ComponentActivity() {
                                             permissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT))
                                         } else {
                                             devices = emptyList()
-                                            bluetooth.startScan(
-                                                onDevice = { name -> runOnUiThread { devices = (devices + name).distinct() } },
+                                            bluetooth.startPairingScan(
+                                                onDevice = { name, address -> runOnUiThread { devices = (devices + (name to address)).distinctBy { it.second } } },
                                                 onError = { error -> runOnUiThread { message = error } }
                                             )
                                             message = "Scanning nearby BLE devices…"
@@ -126,7 +126,12 @@ class MainActivity : ComponentActivity() {
                                 }
                                 item { OutlinedButton(onClick = { bluetooth.stopScan(); message = "Scan stopped" }) { Text("Stop scan") } }
                                 item { Text(message, color = Color.White) }
-                                items(devices) { Text("📶 $it", color = Cyan) }
+                                items(devices) { found ->
+                                    Column {
+                                        Text("📶 " + found.first, color = Cyan)
+                                        Button(onClick = { bluetooth.requestBond(found.second) { status -> runOnUiThread { message = status } } }) { Text("Çifto / Koppeln") }
+                                    }
+                                }
                             }
                             "readings" -> {
                                 item { InfoCard("Matjet / Messungen", "Manual entry", "Measurements are saved only on this device. BLE import is not yet available.") }
