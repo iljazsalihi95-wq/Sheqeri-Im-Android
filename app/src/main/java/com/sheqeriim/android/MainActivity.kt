@@ -41,6 +41,7 @@ class MainActivity : ComponentActivity() {
             var language by remember { mutableStateOf("sq") }
             var page by remember { mutableStateOf("home") }
             var devices by remember { mutableStateOf(listOf<String>()) }
+            var pairedMeters by remember { mutableStateOf(bluetooth.pairedDevices()) }
             var message by remember { mutableStateOf("") }
             var readingInput by remember { mutableStateOf("") }
             var readingNote by remember { mutableStateOf("") }
@@ -101,7 +102,14 @@ class MainActivity : ComponentActivity() {
                                 item { InfoCard("Status", "Native Android prototype", "Account, storage, chart and automatic sync are still in development") }
                             }
                             "bluetooth" -> {
-                                item { InfoCard("Bluetooth Low Energy", "Discovery test", "Scan only. Automatic readings and pairing are not implemented yet.") }
+                                item { InfoCard("Accu-Chek Guide", "Roche · Model 921 · mg/dL", "Native Bluetooth GATT. Importi i matjeve nuk është verifikuar ende.") }
+                                item { Button(onClick = { pairedMeters = bluetooth.pairedDevices() }) { Text("Pajisjet e çiftuara") } }
+                                items(pairedMeters) { paired ->
+                                    Column {
+                                        Text(paired.first, color = Color.White)
+                                        Button(onClick = { bluetooth.connectPaired(paired.second) { status -> runOnUiThread { message = status } } }) { Text("Lidhu / Verbinden") }
+                                    }
+                                }
                                 item {
                                     Button(onClick = {
                                         if (Build.VERSION.SDK_INT >= 31 && !bluetooth.hasPermission()) {
