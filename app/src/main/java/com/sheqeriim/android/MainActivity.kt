@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
@@ -44,13 +45,16 @@ class MainActivity : ComponentActivity() {
             var readingInput by remember { mutableStateOf("") }
             var readingNote by remember { mutableStateOf("") }
             var mealContext by remember { mutableStateOf("Pas ushqimit") }
-            var confirmedPlan by remember { mutableStateOf(false) }
             var readings by remember { mutableStateOf(glucoseStore.all()) }
             var saveMessage by remember { mutableStateOf("") }
             var medicationName by remember { mutableStateOf("") }
             var medicationDose by remember { mutableStateOf("") }
             var medicationEntries by remember { mutableStateOf(medicationStore.all()) }
             var reportStatus by remember { mutableStateOf("") }
+            val wellnessStore = remember { WellnessStore(this@MainActivity) }
+            var wellnessEntries by remember { mutableStateOf(wellnessStore.all()) }
+            var foodDescription by remember { mutableStateOf("") }
+            var foodCarbs by remember { mutableStateOf("") }
             val pdfLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.CreateDocument("application/pdf")
             ) { uri ->
@@ -66,9 +70,9 @@ class MainActivity : ComponentActivity() {
             val permissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions()
             ) { result -> message = if (result.values.all { it }) "Bluetooth permission granted" else "Bluetooth permission denied" }
-            val labels = if (language == "de") listOf("Übersicht","Messungen","Bluetooth","Medikamente","Bericht")
-                         else if (language == "en") listOf("Home","Readings","Bluetooth","Medicines","Report")
-                         else listOf("Ballina","Matjet","Bluetooth","Barnat","Raporti")
+            val labels = if (language == "de") listOf("Übersicht","Messungen","Ernährung","Bluetooth","Medikamente","Bericht")
+                         else if (language == "en") listOf("Home","Readings","Food","Bluetooth","Medicines","Report")
+                         else listOf("Ballina","Matjet","Ushqimi","Bluetooth","Barnat","Raporti")
             MaterialTheme {
                 Column(Modifier.fillMaxSize().background(Navy).padding(16.dp)) {
                     Text("💠 SHEQERI IM", color = Cyan, fontSize = 26.sp)
@@ -79,11 +83,11 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         labels.forEachIndexed { index, label ->
-                            TextButton(onClick = { page = listOf("home","readings","bluetooth","meds","report")[index] },
+                            TextButton(onClick = { page = listOf("home","readings","food","bluetooth","meds","report")[index] },
                                 contentPadding = PaddingValues(horizontal = 3.dp)) {
-                                Text(label, color = if (page == listOf("home","readings","bluetooth","meds","report")[index]) Cyan else Color.White, fontSize = 10.sp)
+                                Text(label, color = if (page == listOf("home","readings","food","bluetooth","meds","report")[index]) Cyan else Color.White, fontSize = 10.sp)
                             }
                         }
                     }
@@ -93,6 +97,7 @@ class MainActivity : ComponentActivity() {
                             "home" -> {
                                 item { InfoCard("Glucose / Blutzucker", readings.firstOrNull()?.let { "${it.valueMgDl} mg/dL" } ?: "— mg/dL", if (readings.isEmpty()) "No measurements saved yet" else "${readings.size} locally saved measurements") }
                                 item { InfoCard("Bluetooth", "Accu-Chek Guide", "Open Bluetooth tab to discover nearby devices") }
+                                item { InfoCard("Vlerësimi i fundit", readings.firstOrNull()?.let { GlucoseEducation.message(it.valueMgDl, language) } ?: "Shto një matje", "Informacion orientues, jo diagnozë.") }
                                 item { InfoCard("Status", "Native Android prototype", "Account, storage, chart and automatic sync are still in development") }
                             }
                             "bluetooth" -> {
@@ -182,7 +187,23 @@ class MainActivity : ComponentActivity() {
                                 item { Text(saveMessage, color = Cyan) }
                                 items(readings) { reading ->
                                     val date = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY).format(Date(reading.timeMillis))
-                                    InfoCard(date, "${reading.valueMgDl} mg/dL", reading.note.ifBlank { "Manual entry" })
+                                    InfoCard(date, "${reading.valueMgDl} mg/dL", reading.note.ifBlank { "Manual entry" } + "\n" + GlucoseEducation.message(reading.valueMgDl, language))
+                                }
+                            }
+                            "food" -> {
+                                item { InfoCard("🥗 Ushqimi", "Ditari i vakteve", "Shëno ushqimet dhe karbohidratet e përafërta; pa llogaritje insuline.") }
+                                item { OutlinedTextField(value = foodDescription, onValueChange = { foodDescription = it.take(200) }, label = { Text("Përshkrimi i ushqimit") }, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)) }
+                                item { OutlinedTextField(value = foodCarbs, onValueChange = { foodCarbs = it.filter(Char::isDigit).take(4) }, label = { Text("Karbohidrate g (opsionale)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)) }
+                                item { Button(onClick = {
+                                    val detail = foodDescription.trim() + if (foodCarbs.isNotBlank()) " · rreth " + foodCarbs + " g karbohidrate" else ""
+                                    if (wellnessStore.add("Ushqim", detail)) {
+                                        wellnessEntries = wellnessStore.all()
+                                        foodDescription = ""
+                                        foodCarbs = ""
+                                    }
+                                }) { Text("Ruaj ushqimin") } }
+                                items(wellnessEntries) { entry ->
+                                    InfoCard(entry.kind, entry.detail, SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMANY).format(Date(entry.timestamp)))
                                 }
                             }
                             "meds" -> {
@@ -215,7 +236,6 @@ class MainActivity : ComponentActivity() {
                                 item { Button(onClick = { pdfLauncher.launch("Sheqeri-Im-Arztbericht.pdf") }) { Text("PDF erstellen / Krijo raportin") } }
                                 item { Text(reportStatus, color = Cyan) }
                             }
-                            "report" -> item { InfoCard("Ärztlicher Bericht", "Deutsch PDF", "German doctor report is planned; no clinical data available in this prototype") }
                         }
                     }
                 }
