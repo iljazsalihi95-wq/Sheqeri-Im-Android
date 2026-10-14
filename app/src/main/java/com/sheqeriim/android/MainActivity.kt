@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
             var message by remember { mutableStateOf("") }
             var readingInput by remember { mutableStateOf("") }
             var readingNote by remember { mutableStateOf("") }
+            var mealContext by remember { mutableStateOf("Pas ushqimit") }
             var readings by remember { mutableStateOf(glucoseStore.all()) }
             var saveMessage by remember { mutableStateOf("") }
             var medicationName by remember { mutableStateOf("") }
@@ -122,6 +123,16 @@ class MainActivity : ComponentActivity() {
                                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedLabelColor = Cyan, unfocusedLabelColor = Cyan))
                                 }
                                 item {
+                                    Text("Koha ndaj ushqimit / Zeitpunkt zur Mahlzeit", color = Cyan)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        listOf("Para ushqimit", "Pas ushqimit", "Esëll").forEach { option ->
+                                            TextButton(onClick = { mealContext = option }) {
+                                                Text(option, fontSize = 11.sp, color = if (mealContext == option) Cyan else Color.LightGray)
+                                            }
+                                        }
+                                    }
+                                }
+                                item {
                                     OutlinedTextField(value = readingNote, onValueChange = { readingNote = it.take(120) },
                                         label = { Text("Note / Shënim") },
                                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedLabelColor = Cyan, unfocusedLabelColor = Cyan))
@@ -129,10 +140,11 @@ class MainActivity : ComponentActivity() {
                                 item {
                                     Button(onClick = {
                                         val value = readingInput.toIntOrNull()
-                                        if (value != null && glucoseStore.add(value, readingNote)) {
+                                        if (value != null && glucoseStore.add(value, "$mealContext · $readingNote")) {
                                             readings = glucoseStore.all()
                                             readingInput = ""
                                             readingNote = ""
+                                            mealContext = "Pas ushqimit"
                                             saveMessage = "Measurement saved locally"
                                         } else saveMessage = "Enter a value from 20 to 600 mg/dL"
                                     }) { Text("Ruaj matjen / Speichern") }
