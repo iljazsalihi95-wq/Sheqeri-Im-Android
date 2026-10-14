@@ -63,6 +63,42 @@ class GlucoseBluetooth(private val context: Context) {
         callback = null
     }
 
+    @Suppress("MissingPermission")
+    fun pairedDevices(): List<Pair<String, String>> {
+        if (!hasPermission()) return emptyList()
+        return adapter?.bondedDevices?.map { (it.name ?: "Bluetooth") to it.address } ?: emptyList()
+    }
+
+    @Suppress("MissingPermission")
+    fun connectPaired(address: String, onStatus: (String) -> Unit) {
+        if (!hasPermission()) { onStatus("Bluetooth permission required"); return }
+        val device = adapter?.bondedDevices?.firstOrNull { it.address == address }
+        if (device == null) { onStatus("Pair the meter in Android Bluetooth settings first"); return }
+        gatt?.close()
+        gatt = device.connectGatt(context, false, object : BluetoothGattCallback() {
+            override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
+                if (status != BluetoothGatt.GATT_SUCCESS) {
+                    onStatus("GATT connection error: $status")
+                    g.close()
+                } else if (newState == android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
+                    onStatus("Connected to paired meter; discovering glucose service…")
+                    if (hasPermission()) {
+                        @Suppress("MissingPermission")
+                        g.discoverServices()
+                    }
+                } else if (newState == android.bluetooth.BluetoothProfile.STATE_DISCONNECTED) {
+                    onStatus("Meter disconnected")
+                }
+            }
+            override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
+                val service = g.getService(GLUCOSE_SERVICE)
+                onStatus(if (status == BluetoothGatt.GATT_SUCCESS && service != null)
+                    "Glucose Service 1808 found. Reading transfer requires RACP support."
+                    else "Glucose Service not available on this connection")
+            }
+        }, BluetoothDevice.TRANSPORT_LE)
+    }
+
     fun close() {
         stopScan()
         gatt?.close()
