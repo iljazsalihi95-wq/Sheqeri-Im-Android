@@ -64,6 +64,35 @@ class GlucoseBluetooth(private val context: Context) {
     }
 
     @Suppress("MissingPermission")
+    fun startPairingScan(onDevice: (String, String) -> Unit, onError: (String) -> Unit) {
+        if (!hasPermission()) { onError("Leja Bluetooth mungon"); return }
+        val scanner = adapter?.bluetoothLeScanner ?: run { onError("Aktivizo Bluetooth"); return }
+        stopScan()
+        callback = object : ScanCallback() {
+            override fun onScanResult(callbackType: Int, result: ScanResult) {
+                val name = result.scanRecord?.deviceName ?: result.device.name ?: "BLE device"
+                onDevice(name, result.device.address)
+            }
+            override fun onScanFailed(errorCode: Int) { onError("BLE scan error: $errorCode") }
+        }
+        scanner.startScan(callback)
+    }
+
+    @Suppress("MissingPermission")
+    fun requestBond(address: String, onStatus: (String) -> Unit) {
+        if (!hasPermission()) { onStatus("Leja Bluetooth mungon"); return }
+        val device = try { adapter?.getRemoteDevice(address) } catch (_: IllegalArgumentException) { null }
+        if (device == null) { onStatus("Adresa e pajisjes nuk është e vlefshme"); return }
+        stopScan()
+        if (device.bondState == BluetoothDevice.BOND_BONDED) {
+            onStatus("Pajisja është çiftuar. Shtyp Lidhu.")
+        } else {
+            val started = device.createBond()
+            onStatus(if (started) "Kërkesa e çiftimit u dërgua. Konfirmo kodin në dialogun Android dhe në glukometër." else "Çiftimi nuk nisi. Aktivizo mënyrën e çiftimit në glukometër.")
+        }
+    }
+
+    @Suppress("MissingPermission")
     fun pairedDevices(): List<Pair<String, String>> {
         if (!hasPermission()) return emptyList()
         return adapter?.bondedDevices?.map { (it.name ?: "Bluetooth") to it.address } ?: emptyList()
