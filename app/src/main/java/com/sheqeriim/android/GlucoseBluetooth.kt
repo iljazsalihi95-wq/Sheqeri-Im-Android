@@ -11,6 +11,9 @@ import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.Context
+import android.content.BroadcastReceiver
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import java.util.UUID
@@ -30,6 +33,7 @@ class GlucoseBluetooth(private val context: Context) {
     private val adapter: BluetoothAdapter? get() = manager?.adapter
     private var callback: ScanCallback? = null
     private var gatt: BluetoothGatt? = null
+    private var bondReceiver: BroadcastReceiver? = null
 
     fun hasPermission(): Boolean =
         Build.VERSION.SDK_INT < 31 ||
@@ -82,14 +86,39 @@ class GlucoseBluetooth(private val context: Context) {
     fun requestBond(address: String, onStatus: (String) -> Unit) {
         if (!hasPermission()) { onStatus("Leja Bluetooth mungon"); return }
         val device = try { adapter?.getRemoteDevice(address) } catch (_: IllegalArgumentException) { null }
-        if (device == null) { onStatus("Adresa e pajisjes nuk është e vlefshme"); return }
+        if (device == null) { onStatus("Adresa e pajisjes nuk eshte e vlefshme"); return }
         stopScan()
         if (device.bondState == BluetoothDevice.BOND_BONDED) {
-            onStatus("Pajisja është çiftuar. Shtyp Lidhu.")
-        } else {
-            val started = device.createBond()
-            onStatus(if (started) "Kërkesa e çiftimit u dërgua. Konfirmo kodin në dialogun Android dhe në glukometër." else "Çiftimi nuk nisi. Aktivizo mënyrën e çiftimit në glukometër.")
+            onStatus("Android raporton ciftim ekzistues per kete adrese. Rifresko listen.")
+            return
         }
+        bondReceiver?.let { try { context.unregisterReceiver(it) } catch (_: Exception) {} }
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context, intent: Intent) {
+                if (intent.action != BluetoothDevice.ACTION_BOND_STATE_CHANGED) return
+                val changed = if (Build.VERSION.SDK_INT >= 33)
+                    intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+                else @Suppress("DEPRECATION") intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+                if (changed?.address != address) return
+                when (intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR)) {
+                    BluetoothDevice.BOND_BONDING -> onStatus("Ciftimi ne proces. Kontrollo dialogun e Android per PIN.")
+                    BluetoothDevice.BOND_BONDED -> {
+                        onStatus("Ciftimi u konfirmua nga Android. Rifresko Pajisjet e ciftuara.")
+                        try { context.unregisterReceiver(this) } catch (_: Exception) {}
+                        bondReceiver = null
+                    }
+                    BluetoothDevice.BOND_NONE -> {
+                        onStatus("Ciftimi deshtoi ose u anulua. Provo serish me kodin e ri te glukometrit.")
+                        try { context.unregisterReceiver(this) } catch (_: Exception) {}
+                        bondReceiver = null
+                    }
+                }
+            }
+        }
+        bondReceiver = receiver
+        context.registerReceiver(receiver, IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED))
+        val started = device.createBond()
+        onStatus(if (started) "Ciftimi u nis. Prit dialogun Android per kodin 6-shifror." else "Android nuk e nisi ciftimin; kontrollo Wireless ne glukometer.")
     }
 
     @Suppress("MissingPermission")
@@ -129,6 +158,8 @@ class GlucoseBluetooth(private val context: Context) {
     }
 
     fun close() {
+        bondReceiver?.let { try { context.unregisterReceiver(it) } catch (_: Exception) {} }
+        bondReceiver = null
         stopScan()
         gatt?.close()
         gatt = null
