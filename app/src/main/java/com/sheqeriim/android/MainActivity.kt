@@ -141,7 +141,18 @@ class MainActivity : ComponentActivity() {
                                 items(pairedMeters) { paired ->
                                     Column {
                                         Text(paired.first, color = Color.White)
-                                        Button(onClick = { bluetooth.connectPaired(paired.second) { status -> runOnUiThread { message = status } } }) { Text("Lidhu / Verbinden") }
+                                        Button(onClick = { bluetooth.connectPaired(paired.second,
+                                            onStatus = { status -> runOnUiThread { message = status } },
+                                            onReading = { value, timestamp, meter, sequence ->
+                                                val saved = glucoseStore.importMeterReading(value, timestamp, meter, sequence)
+                                                runOnUiThread {
+                                                    if (saved) {
+                                                        readings = glucoseStore.all()
+                                                        message = "U importua matja #$sequence: $value mg/dL"
+                                                    }
+                                                }
+                                            }
+                                        ) }) { Text("Lidhu / Verbinden") }
                                     }
                                 }
                                 item {
