@@ -108,9 +108,11 @@ class GlucoseBluetooth(private val context: Context) {
                 val variant = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_VARIANT, -1)
                 if (variant == BluetoothDevice.PAIRING_VARIANT_PIN) {
                     val accepted = target.setPin(pin.toByteArray(Charsets.UTF_8))
-                    onStatus(if (accepted) "Kodi iu dorezua Android-it. Prit konfirmimin e ciftimit." else "Android nuk pranoi kodin. Kontrollo dritaren e sistemit.")
+                    onStatus(if (accepted) "PIN iu dorezua Android-it; prit konfirmimin." else "Android nuk e pranoi PIN-in. Perdore dialogun e sistemit.")
                 } else {
-                    onStatus("Android kerkoi nje menyre tjeter ciftimi. Ndiq dritaren e sistemit.")
+                    // A six-digit BLE passkey uses Android's secure system dialog.
+                    // The public Bluetooth API cannot programmatically enter a passkey.
+                    onStatus("Shkruaj kodin 6-shifror ne dritaren Bluetooth te Android-it. Kodi ne aplikacion nuk e zevendeson ate.")
                 }
             }
         }
@@ -143,11 +145,15 @@ class GlucoseBluetooth(private val context: Context) {
                         onStatus("Ciftimi u konfirmua nga Android. Rifresko Pajisjet e ciftuara.")
                         try { context.unregisterReceiver(this) } catch (_: Exception) {}
                         bondReceiver = null
+                        pairingReceiver?.let { try { context.unregisterReceiver(it) } catch (_: Exception) {} }
+                        pairingReceiver = null
                     }
                     BluetoothDevice.BOND_NONE -> {
                         onStatus("Ciftimi deshtoi ose u anulua. Provo serish me kodin e ri te glukometrit.")
                         try { context.unregisterReceiver(this) } catch (_: Exception) {}
                         bondReceiver = null
+                        pairingReceiver?.let { try { context.unregisterReceiver(it) } catch (_: Exception) {} }
+                        pairingReceiver = null
                     }
                 }
             }
