@@ -117,6 +117,21 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                                 item { InfoCard("Vlerësimi i fundit", readings.firstOrNull()?.let { GlucoseEducation.message(it.valueMgDl, language) } ?: "Prek kartën e matjeve për të shtuar matjen e parë", "Informacion orientues, jo diagnozë.") }
+                                item {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(onClick = { page = "food" }) { Text("Ushqimi") }
+                                        Button(onClick = { page = "meds" }) { Text("Barnat") }
+                                        Button(onClick = { page = "report" }) { Text("Raporti") }
+                                    }
+                                }
+                                item {
+                                    val recent = readings.filter { it.timeMillis >= System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000 }
+                                    val average = if (recent.isEmpty()) "—" else recent.map { it.valueMgDl }.average().toInt().toString()
+                                    InfoCard("Përmbledhja · 7 ditë", "Mesatarja: $average mg/dL", "Matje: ${recent.size} · Barnat e regjistruara: ${medicationEntries.size}")
+                                }
+                                item {
+                                    InfoCard("Ditari i ushqimit", wellnessEntries.firstOrNull { it.kind == "Ushqim" }?.detail ?: "Ende pa ushqime të regjistruara", "Hap Ushqimi për të shtuar vaktin.")
+                                }
                                 item { InfoCard("Gjendja e sistemit", "Matjet manuale aktive", "Importi Bluetooth ende nuk është verifikuar me pajisjen.") }
                             }
                             "bluetooth" -> {
