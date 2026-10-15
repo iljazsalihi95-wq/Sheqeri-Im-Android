@@ -160,7 +160,16 @@ class GlucoseBluetooth(private val context: Context) {
         }
         bondReceiver = receiver
         context.registerReceiver(receiver, IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED))
-        val started = device.createBond()
+        val started = try { device.createBond() } catch (e: SecurityException) {
+            onStatus("Android nuk lejoi çiftimin: ${e.message}")
+            false
+        }
+        if (!started) {
+            try { context.unregisterReceiver(receiver) } catch (_: Exception) {}
+            bondReceiver = null
+            pairingReceiver?.let { try { context.unregisterReceiver(it) } catch (_: Exception) {} }
+            pairingReceiver = null
+        }
         onStatus(if (started) "Ciftimi u nis. Prit dialogun Android per kodin 6-shifror." else "Android nuk e nisi ciftimin; kontrollo Wireless ne glukometer.")
     }
 
