@@ -7,6 +7,9 @@ import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattService
+import android.bluetooth.BluetoothGattDescriptor
+import android.bluetooth.BluetoothProfile
+import java.util.Calendar
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
@@ -179,41 +182,148 @@ class GlucoseBluetooth(private val context: Context) {
         return adapter?.bondedDevices?.map { (it.name ?: "Bluetooth") to it.address } ?: emptyList()
     }
 
+    private val cccd = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+    private var activeMeterId: String? = null
+    private var onMeasurement: ((Int, Long, String, Int) -> Unit)? = null
+    private var syncStep = 0
+
+    /** Subscribe to glucose measurements, then request all stored records via RACP. */
     @Suppress("MissingPermission")
-    fun connectPaired(address: String, onStatus: (String) -> Unit) {
-        if (!hasPermission()) { onStatus("Bluetooth permission required"); return }
+    fun connectPaired(
+        address: String,
+        onStatus: (String) -> Unit,
+        onReading: (Int, Long, String, Int) -> Unit = { _, _, _, _ -> }
+    ) {
+        if (!hasPermission()) { onStatus("Leja Bluetooth mungon"); return }
         val device = adapter?.bondedDevices?.firstOrNull { it.address == address }
-        if (device == null) { onStatus("Pair the meter in Android Bluetooth settings first"); return }
+        if (device == null) { onStatus("Çifto glukometrin në Android së pari"); return }
         stopScan()
         gatt?.disconnect()
         gatt?.close()
         gatt = null
-        onStatus("Po lidhem me glukometrin. Mbaje ndezur dhe mbylle mySugr gjate proves.")
+        activeMeterId = address
+        onMeasurement = onReading
+        syncStep = 0
+        onStatus("Duke u lidhur me Accu-Chek Guide…")
         gatt = device.connectGatt(context, false, object : BluetoothGattCallback() {
             override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
                 if (status != BluetoothGatt.GATT_SUCCESS) {
-                    onStatus("Lidhja BLE deshtoi (GATT $status). Sigurohu qe mySugr nuk po sinkronizon dhe glukometri eshte ndezur. Provo serish.")
+                    onStatus("Lidhja BLE dështoi: GATT $status")
                     g.close()
                     if (gatt === g) gatt = null
-                } else if (newState == android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
-                    onStatus("Connected to paired meter; discovering glucose service…")
-                    if (hasPermission()) {
-                        @Suppress("MissingPermission")
-                        g.discoverServices()
-                    }
-                } else if (newState == android.bluetooth.BluetoothProfile.STATE_DISCONNECTED) {
-                    onStatus("Glukometri u shkeput")
+                } else if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    onStatus("Lidhur. Po kërkoj shërbimin e glukozës…")
+                    g.discoverServices()
+                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    onStatus("Glukometri u shkëput")
                     g.close()
                     if (gatt === g) gatt = null
                 }
             }
+
             override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
                 val service = if (status == BluetoothGatt.GATT_SUCCESS) g.getService(GLUCOSE_SERVICE) else null
-                onStatus(if (status == BluetoothGatt.GATT_SUCCESS && service != null)
-                    "Glucose Service 1808 found. Reading transfer requires RACP support."
-                    else "Glucose Service not available on this connection")
+                val measurement = service?.getCharacteristic(GLUCOSE_MEASUREMENT)
+                val racp = service?.getCharacteristic(RECORD_ACCESS_CONTROL_POINT)
+                if (measurement == null || racp == null) {
+                    onStatus("Shërbimi i glukozës ose RACP mungon në këtë lidhje")
+                    return
+                }
+                syncStep = 1
+                subscribe(g, measurement, onStatus)
+            }
+
+            override fun onDescriptorWrite(g: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
+                if (status != BluetoothGatt.GATT_SUCCESS) {
+                    onStatus("Aktivizimi i njoftimeve BLE dështoi: $status")
+                    return
+                }
+                val service = g.getService(GLUCOSE_SERVICE) ?: return
+                if (syncStep == 1) {
+                    syncStep = 2
+                    val racp = service.getCharacteristic(RECORD_ACCESS_CONTROL_POINT) ?: return
+                    subscribe(g, racp, onStatus)
+                } else if (syncStep == 2) {
+                    syncStep = 3
+                    val racp = service.getCharacteristic(RECORD_ACCESS_CONTROL_POINT) ?: return
+                    // Report Stored Records / All Records: opcode=1, operator=1.
+                    racp.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                    racp.value = byteArrayOf(0x01, 0x01)
+                    if (g.writeCharacteristic(racp)) onStatus("Po kërkoj matjet e ruajtura…")
+                    else onStatus("Glukometri nuk pranoi kërkesën RACP")
+                }
+            }
+
+            override fun onCharacteristicChanged(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+                handleCharacteristic(characteristic.uuid, characteristic.value ?: return, onStatus)
+            }
+
+            override fun onCharacteristicChanged(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+                handleCharacteristic(characteristic.uuid, value, onStatus)
             }
         }, BluetoothDevice.TRANSPORT_LE)
+    }
+
+    @Suppress("MissingPermission")
+    private fun subscribe(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic, onStatus: (String) -> Unit) {
+        val descriptor = characteristic.getDescriptor(cccd)
+        if (descriptor == null || !g.setCharacteristicNotification(characteristic, true)) {
+            onStatus("Nuk mund të aktivizohen njoftimet BLE")
+            return
+        }
+        descriptor.value = if (characteristic.uuid == RECORD_ACCESS_CONTROL_POINT)
+            BluetoothGattDescriptor.ENABLE_INDICATION_VALUE else BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+        if (!g.writeDescriptor(descriptor)) onStatus("Shkrimi i konfigurimit BLE dështoi")
+    }
+
+    private fun handleCharacteristic(uuid: UUID, bytes: ByteArray, onStatus: (String) -> Unit) {
+        if (uuid == RECORD_ACCESS_CONTROL_POINT) {
+            if (bytes.size >= 4 && (bytes[0].toInt() and 255) == 6) {
+                val result = bytes[3].toInt() and 255
+                onStatus(if (result == 1) "Transferimi i matjeve përfundoi" else "RACP përfundoi me kod $result")
+            }
+            return
+        }
+        if (uuid != GLUCOSE_MEASUREMENT || bytes.size < 10) return
+        val flags = bytes[0].toInt() and 255
+        val seq = (bytes[1].toInt() and 255) or ((bytes[2].toInt() and 255) shl 8)
+        fun u(i: Int) = bytes[i].toInt() and 255
+        val year = u(3) or (u(4) shl 8)
+        if (year !in 2000..2100) return
+        val calendar = Calendar.getInstance().apply {
+            isLenient = false
+            set(year, u(5) - 1, u(6), u(7), u(8), u(9))
+            set(Calendar.MILLISECOND, 0)
+        }
+        var offset = 10
+        try {
+            if ((flags and 0x01) != 0) {
+                if (bytes.size < offset + 2) return
+                val minutes = (u(offset) or (u(offset + 1) shl 8)).toShort().toInt()
+                calendar.add(Calendar.MINUTE, minutes)
+                offset += 2
+            }
+            if ((flags and 0x02) == 0 || bytes.size < offset + 3) {
+                onStatus("Matja #$seq pa vlerë glukoze; u anashkalua")
+                return
+            }
+            val raw = u(offset) or (u(offset + 1) shl 8)
+            var mantissa = raw and 0x0fff
+            if ((mantissa and 0x0800) != 0) mantissa -= 0x1000
+            var exponent = (raw ushr 12) and 0x0f
+            if ((exponent and 0x08) != 0) exponent -= 16
+            val concentration = mantissa * Math.pow(10.0, exponent.toDouble())
+            // Bluetooth glucose unit bit: 0=kg/L, 1=mol/L.
+            val mgDl = if ((flags and 0x04) != 0) concentration * 180155.88 else concentration * 100000.0
+            val rounded = kotlin.math.round(mgDl).toInt()
+            if (rounded !in 20..600) {
+                onStatus("Matja #$seq jashtë intervalit të vlefshëm")
+                return
+            }
+            onMeasurement?.invoke(rounded, calendar.timeInMillis, activeMeterId ?: "", seq)
+        } catch (_: Exception) {
+            onStatus("Data ose formati i matjes #$seq nuk u njoh")
+        }
     }
 
     fun close() {
