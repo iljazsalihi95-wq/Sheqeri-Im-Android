@@ -34,6 +34,7 @@ class GlucoseBluetooth(private val context: Context) {
     private var callback: ScanCallback? = null
     private var gatt: BluetoothGatt? = null
     private var bondReceiver: BroadcastReceiver? = null
+    private var pairingReceiver: BroadcastReceiver? = null
 
     fun hasPermission(): Boolean =
         Build.VERSION.SDK_INT < 31 ||
@@ -80,6 +81,42 @@ class GlucoseBluetooth(private val context: Context) {
             override fun onScanFailed(errorCode: Int) { onError("BLE scan error: $errorCode") }
         }
         scanner.startScan(callback)
+    }
+
+    @Suppress("MissingPermission")
+    fun pairWithPin(address: String, pin: String, onStatus: (String) -> Unit) {
+        if (!hasPermission()) { onStatus("Leja Bluetooth mungon"); return }
+        if (pin.length != 6 || pin.any { !it.isDigit() }) {
+            onStatus("Shkruaj kodin e sakte 6-shifror nga glukometri")
+            return
+        }
+        val device = try { adapter?.getRemoteDevice(address) } catch (_: Exception) { null }
+        if (device == null) { onStatus("Glukometri nuk u gjet"); return }
+        stopScan()
+        if (device.bondState == BluetoothDevice.BOND_BONDED) {
+            onStatus("Glukometri eshte tashme i ciftuar. Perdore butonin Lidhu.")
+            return
+        }
+        pairingReceiver?.let { try { context.unregisterReceiver(it) } catch (_: Exception) {} }
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context, intent: Intent) {
+                if (intent.action != BluetoothDevice.ACTION_PAIRING_REQUEST) return
+                val target = if (Build.VERSION.SDK_INT >= 33)
+                    intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+                else intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+                if (target?.address != address) return
+                val variant = intent.getIntExtra(BluetoothDevice.EXTRA_PAIRING_VARIANT, -1)
+                if (variant == BluetoothDevice.PAIRING_VARIANT_PIN) {
+                    val accepted = target.setPin(pin.toByteArray(Charsets.UTF_8))
+                    onStatus(if (accepted) "Kodi iu dorezua Android-it. Prit konfirmimin e ciftimit." else "Android nuk pranoi kodin. Kontrollo dritaren e sistemit.")
+                } else {
+                    onStatus("Android kerkoi nje menyre tjeter ciftimi. Ndiq dritaren e sistemit.")
+                }
+            }
+        }
+        pairingReceiver = receiver
+        context.registerReceiver(receiver, IntentFilter(BluetoothDevice.ACTION_PAIRING_REQUEST))
+        requestBond(address, onStatus)
     }
 
     @Suppress("MissingPermission")
@@ -167,6 +204,8 @@ class GlucoseBluetooth(private val context: Context) {
     fun close() {
         bondReceiver?.let { try { context.unregisterReceiver(it) } catch (_: Exception) {} }
         bondReceiver = null
+        pairingReceiver?.let { try { context.unregisterReceiver(it) } catch (_: Exception) {} }
+        pairingReceiver = null
         stopScan()
         gatt?.close()
         gatt = null
