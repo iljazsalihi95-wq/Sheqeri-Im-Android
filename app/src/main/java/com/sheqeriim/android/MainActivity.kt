@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
             var language by remember { mutableStateOf("sq") }
             var page by remember { mutableStateOf("home") }
             var devices by remember { mutableStateOf(listOf<Pair<String, String>>()) }
-            var pairedMeters by remember { mutableStateOf(bluetooth.pairedDevices()) }
+            var pairedMeters by remember { mutableStateOf(bluetooth.pairedDevices().filter { it.first.startsWith("meter+", ignoreCase = true) || it.first.contains("Accu-Chek", ignoreCase = true) }) }
             var message by remember { mutableStateOf("") }
             var readingInput by remember { mutableStateOf("") }
             var readingNote by remember { mutableStateOf("") }
@@ -136,7 +136,7 @@ class MainActivity : ComponentActivity() {
                             }
                             "bluetooth" -> {
                                 item { InfoCard("Accu-Chek Guide", "Roche · Model 921 · mg/dL", "Native Bluetooth GATT. Importi i matjeve nuk është verifikuar ende.") }
-                                item { Button(onClick = { pairedMeters = bluetooth.pairedDevices() }) { Text("Pajisjet e çiftuara") } }
+                                item { Button(onClick = { pairedMeters = bluetooth.pairedDevices().filter { it.first.startsWith("meter+", ignoreCase = true) || it.first.contains("Accu-Chek", ignoreCase = true) } }) { Text("Glukometrat e çiftuar") } }
                                 items(pairedMeters) { paired ->
                                     Column {
                                         Text(paired.first, color = Color.White)
@@ -150,15 +150,16 @@ class MainActivity : ComponentActivity() {
                                         } else {
                                             devices = emptyList()
                                             bluetooth.startPairingScan(
-                                                onDevice = { name, address -> runOnUiThread { devices = (devices + (name to address)).distinctBy { it.second } } },
+                                                onDevice = { name, address -> runOnUiThread { devices = (devices + (name to address)).filter { it.first.startsWith("meter+", ignoreCase = true) || it.first.contains("Accu-Chek", ignoreCase = true) }.distinctBy { it.second } } },
                                                 onError = { error -> runOnUiThread { message = error } }
                                             )
-                                            message = "Scanning nearby BLE devices…"
+                                            message = "Duke kërkuar glukometrin Accu-Chek Guide…"
                                         }
-                                    }) { Text("Scan BLE devices") }
+                                    }) { Text("Kërko Accu-Chek Guide") }
                                 }
                                 item { OutlinedButton(onClick = { bluetooth.stopScan(); message = "Scan stopped" }) { Text("Stop scan") } }
                                 item { Text(message, color = Color.White) }
+                                item { Text("Nëse shfaqet meter+..., shtyp Çifto. Nëse Android nuk kërkon PIN dhe glukometri nuk del te pajisjet e çiftuara, çiftimi nuk është konfirmuar.", color = Color.LightGray, fontSize = 12.sp) }
                                 items(devices) { found ->
                                     Column {
                                         Text("📶 " + found.first, color = Cyan)
