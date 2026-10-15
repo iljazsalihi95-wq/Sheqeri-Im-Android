@@ -25,4 +25,21 @@ class GlucoseStore(context: Context) {
         }
         return preferences.edit().putString("readings", arr.toString()).commit()
     }
+    /** Persist meter readings with their original timestamps, skipping repeats. */
+    @Synchronized
+    fun importMeterReading(valueMgDl: Int, timeMillis: Long, meterId: String, sequence: Int): Boolean {
+        if (valueMgDl !in 20..600 || timeMillis <= 0L || sequence < 0) return false
+        val key = "ble:" + meterId + ":" + sequence
+        if (preferences.getBoolean(key, false)) return false
+        val note = "Accu-Chek Guide · BLE #" + sequence
+        val existing = all()
+        val updated = (existing + GlucoseReading(valueMgDl, timeMillis, note))
+            .sortedByDescending { it.timeMillis }.take(1000)
+        val arr = JSONArray()
+        updated.forEach {
+            arr.put(JSONObject().put("value", it.valueMgDl).put("time", it.timeMillis).put("note", it.note))
+        }
+        return preferences.edit().putString("readings", arr.toString()).putBoolean(key, true).commit()
+    }
+
 }
