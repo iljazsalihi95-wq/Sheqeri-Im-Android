@@ -171,11 +171,11 @@ class MainActivity : ComponentActivity() {
                                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
                                     )
                                 }
-                                item { Text("Shkruaj kodin ketu per ta pasur gati. Konfirmimi behet ne dialogun e sigurise Android kur shfaqet; aplikacioni nuk e dergon vete PIN-in.", color = Color.LightGray, fontSize = 12.sp) }
+                                item { Text("Kodi dergohet gjate kerkese se ciftimit. Nese Android shfaq dialog, konfirmoje edhe aty.", color = Color.LightGray, fontSize = 12.sp) }
                                 items(devices) { found ->
                                     Column {
                                         Text("📶 " + found.first, color = Cyan)
-                                        Button(onClick = { bluetooth.requestBond(found.second) { status -> runOnUiThread { message = status } } }) { Text("Çifto / Koppeln") }
+                                        Button(onClick = { bluetooth.pairWithPin(found.second, meterPin) { status -> runOnUiThread { message = status; pairedMeters = bluetooth.pairedDevices().filter { it.first.startsWith("meter+", ignoreCase = true) || it.first.contains("Accu-Chek", ignoreCase = true) } } } }) { Text("Çifto / Koppeln") }
                                     }
                                 }
                             }
