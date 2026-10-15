@@ -223,6 +223,13 @@ class MainActivity : ComponentActivity() {
                             }
                             "food" -> {
                                 item { InfoCard("🥗 Ushqimi", "Ditari i vakteve", "Shëno ushqimet dhe karbohidratet e përafërta; pa llogaritje insuline.") }
+                                item {
+                                    Button(onClick = {
+                                        foodDescription = "15.10.2026: 5 feta buke integrale, 2 veze te ziera, djathe, gjalpe, ullinj, kastravec, ajvar, speca dhe caj pa sheqer"
+                                        foodCarbs = "72"
+                                    }) { Text("Mengjesi i sotem - ploteso formularin") }
+                                }
+                                item { Text("Karbohidratet jane vleresim 65-77 g; korrigjoji sipas peshes se bukes.", color = Color.LightGray) }
                                 item { OutlinedTextField(value = foodDescription, onValueChange = { foodDescription = it.take(200) }, label = { Text("Përshkrimi i ushqimit") }, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)) }
                                 item { OutlinedTextField(value = foodCarbs, onValueChange = { foodCarbs = it.filter(Char::isDigit).take(4) }, label = { Text("Karbohidrate g (opsionale)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)) }
                                 item { Button(onClick = {
