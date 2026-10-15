@@ -117,6 +117,40 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 }
+                                item {
+                                    val todayStart = java.util.Calendar.getInstance().apply {
+                                        set(java.util.Calendar.HOUR_OF_DAY, 0)
+                                        set(java.util.Calendar.MINUTE, 0)
+                                        set(java.util.Calendar.SECOND, 0)
+                                        set(java.util.Calendar.MILLISECOND, 0)
+                                    }.timeInMillis
+                                    val today = readings.filter { it.timeMillis >= todayStart }.sortedBy { it.timeMillis }
+                                    val avg = if (today.isEmpty()) "—" else "%.0f".format(java.util.Locale.US, today.map { it.valueMgDl }.average())
+                                    Card(colors = CardDefaults.cardColors(containerColor = Panel), modifier = Modifier.fillMaxWidth()) {
+                                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            Text("📈 Sot · Trend i glukozës", color = Cyan, fontSize = 19.sp)
+                                            Text("${today.size} matje   •   Mesatarja $avg mg/dL", color = Color.White)
+                                            if (today.isEmpty()) {
+                                                Text("Nuk ka matje për sot", color = Color.LightGray)
+                                            } else {
+                                                today.forEach { reading ->
+                                                    val clock = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(reading.timeMillis))
+                                                    val indicator = when {
+                                                        reading.valueMgDl < 70 -> "🔴"
+                                                        reading.valueMgDl <= 180 -> "🟢"
+                                                        else -> "🟠"
+                                                    }
+                                                    Text("$indicator $clock  ·  ${reading.valueMgDl} mg/dL", color = Color.White, fontSize = 16.sp)
+                                                }
+                                                if (today.size >= 2) {
+                                                    val change = today.last().valueMgDl - today[today.size - 2].valueMgDl
+                                                    Text("Ndryshimi nga matja e mëparshme: ${if (change > 0) "+" else ""}$change mg/dL", color = Cyan)
+                                                }
+                                            }
+                                            Text("Ngjyrat janë orientuese; objektivat përcaktohen me mjekun. Matjet Bluetooth shfaqen pas importit.", color = Color.LightGray, fontSize = 12.sp)
+                                        }
+                                    }
+                                }
                                 item { InfoCard("Vlerësimi i fundit", readings.firstOrNull()?.let { GlucoseEducation.message(it.valueMgDl, language) } ?: "Prek kartën e matjeve për të shtuar matjen e parë", "Informacion orientues, jo diagnozë.") }
                                 item {
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
