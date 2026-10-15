@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
             var devices by remember { mutableStateOf(listOf<Pair<String, String>>()) }
             var pairedMeters by remember { mutableStateOf(bluetooth.pairedDevices().filter { it.first.startsWith("meter+", ignoreCase = true) || it.first.contains("Accu-Chek", ignoreCase = true) }) }
             var message by remember { mutableStateOf("") }
+            var meterPin by remember { mutableStateOf("") }
             var readingInput by remember { mutableStateOf("") }
             var readingNote by remember { mutableStateOf("") }
             var mealContext by remember { mutableStateOf("Pas ushqimit") }
@@ -160,6 +161,17 @@ class MainActivity : ComponentActivity() {
                                 item { OutlinedButton(onClick = { bluetooth.stopScan(); message = "Scan stopped" }) { Text("Stop scan") } }
                                 item { Text(message, color = Color.White) }
                                 item { Text("Nëse shfaqet meter+..., shtyp Çifto. Nëse Android nuk kërkon PIN dhe glukometri nuk del te pajisjet e çiftuara, çiftimi nuk është konfirmuar.", color = Color.LightGray, fontSize = 12.sp) }
+                                item {
+                                    OutlinedTextField(
+                                        value = meterPin,
+                                        onValueChange = { meterPin = it.filter(Char::isDigit).take(6) },
+                                        label = { Text("Kodi 6-shifror nga Accu-Chek Guide") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                                    )
+                                }
+                                item { Text("Shkruaj kodin ketu per ta pasur gati. Konfirmimi behet ne dialogun e sigurise Android kur shfaqet; aplikacioni nuk e dergon vete PIN-in.", color = Color.LightGray, fontSize = 12.sp) }
                                 items(devices) { found ->
                                     Column {
                                         Text("📶 " + found.first, color = Cyan)
