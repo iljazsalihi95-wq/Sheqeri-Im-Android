@@ -132,12 +132,17 @@ class GlucoseBluetooth(private val context: Context) {
         if (!hasPermission()) { onStatus("Bluetooth permission required"); return }
         val device = adapter?.bondedDevices?.firstOrNull { it.address == address }
         if (device == null) { onStatus("Pair the meter in Android Bluetooth settings first"); return }
+        stopScan()
+        gatt?.disconnect()
         gatt?.close()
+        gatt = null
+        onStatus("Po lidhem me glukometrin. Mbaje ndezur dhe mbylle mySugr gjate proves.")
         gatt = device.connectGatt(context, false, object : BluetoothGattCallback() {
             override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
                 if (status != BluetoothGatt.GATT_SUCCESS) {
-                    onStatus("GATT connection error: $status")
+                    onStatus("Lidhja BLE deshtoi (GATT $status). Sigurohu qe mySugr nuk po sinkronizon dhe glukometri eshte ndezur. Provo serish.")
                     g.close()
+                    if (gatt === g) gatt = null
                 } else if (newState == android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
                     onStatus("Connected to paired meter; discovering glucose service…")
                     if (hasPermission()) {
@@ -145,11 +150,13 @@ class GlucoseBluetooth(private val context: Context) {
                         g.discoverServices()
                     }
                 } else if (newState == android.bluetooth.BluetoothProfile.STATE_DISCONNECTED) {
-                    onStatus("Meter disconnected")
+                    onStatus("Glukometri u shkeput")
+                    g.close()
+                    if (gatt === g) gatt = null
                 }
             }
             override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
-                val service = g.getService(GLUCOSE_SERVICE)
+                val service = if (status == BluetoothGatt.GATT_SUCCESS) g.getService(GLUCOSE_SERVICE) else null
                 onStatus(if (status == BluetoothGatt.GATT_SUCCESS && service != null)
                     "Glucose Service 1808 found. Reading transfer requires RACP support."
                     else "Glucose Service not available on this connection")
