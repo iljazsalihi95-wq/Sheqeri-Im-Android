@@ -320,12 +320,26 @@ class MainActivity : ComponentActivity() {
                             "food" -> {
                                 item { InfoCard("🥗 Ushqimi", "Ditari i vakteve", "Shëno ushqimet dhe karbohidratet e përafërta; pa llogaritje insuline.") }
                                 item {
-                                    Button(onClick = {
-                                        foodDescription = "15.10.2026: 5 feta buke integrale, 2 veze te ziera, djathe, gjalpe, ullinj, kastravec, ajvar, speca dhe caj pa sheqer"
-                                        foodCarbs = "72"
-                                    }) { Text("Mengjesi i sotem - ploteso formularin") }
+                                    Text("Shembuj nga ushqimet e tua · vlerësime, jo peshime", color = Color.LightGray)
                                 }
-                                item { Text("Karbohidratet jane vleresim 65-77 g; korrigjoji sipas peshes se bukes.", color = Color.LightGray) }
+                                item {
+                                    Button(onClick = {
+                                        foodDescription = "Mëngjes: 2 vezë të ziera, djathë i bardhë (~90 g), ullinj, kastravec, ajvar, 2 speca të gjelbër, bukë (~70 g). Proteina ~36 g; kalori ~700 kcal. Sasitë janë vlerësuar nga fotografia."
+                                        foodCarbs = "57"
+                                    }) { Text("📷 Mëngjesi 16.10 · 57 g KH · 36 g proteina") }
+                                }
+                                item {
+                                    Button(onClick = {
+                                        foodDescription = "Mëngjes 15.10: 5 feta bukë integrale, 2 vezë të ziera, djathë, gjalpë, ullinj, kastravec, ajvar, speca dhe çaj pa sheqer. Vlerësim 65–77 g KH."
+                                        foodCarbs = "75"
+                                    }) { Text("Mëngjesi 15.10 · 75 g KH") }
+                                }
+                                item {
+                                    Button(onClick = {
+                                        foodDescription = "Darkë 15.10: 6 sarma, bukë e bardhë dhe 2 copa pite me spinaq e kaçkavall. Karbohidratet varen nga madhësia e porcioneve."
+                                        foodCarbs = ""
+                                    }) { Text("Darka 15.10 · plotëso karbohidratet") }
+                                }
                                 item { OutlinedTextField(value = foodDescription, onValueChange = { foodDescription = it.take(200) }, label = { Text("Përshkrimi i ushqimit") }, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)) }
                                 item { OutlinedTextField(value = foodCarbs, onValueChange = { foodCarbs = it.filter(Char::isDigit).take(4) }, label = { Text("Karbohidrate g (opsionale)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)) }
                                 item { Button(onClick = {
