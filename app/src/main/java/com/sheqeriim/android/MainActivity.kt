@@ -118,6 +118,29 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                                 item {
+                                    val previousEvening = readings.filter {
+                                        val c = java.util.Calendar.getInstance().apply { timeInMillis = it.timeMillis }
+                                        val yesterday = java.util.Calendar.getInstance().apply { add(java.util.Calendar.DATE, -1) }
+                                        c.get(java.util.Calendar.YEAR) == yesterday.get(java.util.Calendar.YEAR) &&
+                                            c.get(java.util.Calendar.DAY_OF_YEAR) == yesterday.get(java.util.Calendar.DAY_OF_YEAR)
+                                    }.sortedBy { it.timeMillis }
+                                    if (previousEvening.size >= 2) {
+                                        Card(colors = CardDefaults.cardColors(containerColor = Panel), modifier = Modifier.fillMaxWidth()) {
+                                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                                Text("🌙 Mbrëmë · Analiza e matjeve", color = Cyan, fontSize = 18.sp)
+                                                previousEvening.takeLast(6).forEach { reading ->
+                                                    val clock = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(reading.timeMillis))
+                                                    Text("$clock  ·  ${reading.valueMgDl} mg/dL", color = Color.White)
+                                                }
+                                                val highest = previousEvening.maxOf { it.valueMgDl }
+                                                val lowest = previousEvening.minOf { it.valueMgDl }
+                                                Text("Intervali i matjeve: $lowest–$highest mg/dL", color = Color.White)
+                                                Text("Ushqimi mund ta rrisë glukozën edhe kur insulina vepron. Mos ndrysho dozat vetëm sipas këtij grafiku.", color = Color.LightGray, fontSize = 12.sp)
+                                            }
+                                        }
+                                    }
+                                }
+                                item {
                                     val todayStart = java.util.Calendar.getInstance().apply {
                                         set(java.util.Calendar.HOUR_OF_DAY, 0)
                                         set(java.util.Calendar.MINUTE, 0)
