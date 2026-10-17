@@ -108,6 +108,31 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                                 item {
+                                    Card(colors = CardDefaults.cardColors(containerColor = Panel), modifier = Modifier.fillMaxWidth()) {
+                                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Text("📋 Regjistrimi 17.10.2026", color = Cyan, fontSize = 18.sp)
+                                            Text("07:21 · 109 | 12:13 · 99 | 21:12 · 158 mg/dL", color = Color.White)
+                                            Text("Pa mëngjes. Rreth 16:00: mish qengji, pleskavicë, qebapa. Kafe, 1 banane, 1 mollë. Sasitë e mishit dhe oraret e frutave nuk janë përcaktuar.", color = Color.LightGray)
+                                            Button(onClick = {
+                                                fun timeAt(hour: Int, minute: Int): Long = java.util.Calendar.getInstance().apply {
+                                                    set(2026, java.util.Calendar.OCTOBER, 17, hour, minute, 0)
+                                                    set(java.util.Calendar.MILLISECOND, 0)
+                                                }.timeInMillis
+                                                val a = glucoseStore.addHistorical(109, timeAt(7, 21), "mySugr · foto 17.10 · pa ushqim")
+                                                val b = glucoseStore.addHistorical(99, timeAt(12, 13), "mySugr · foto 17.10")
+                                                val c = glucoseStore.addHistorical(158, timeAt(21, 12), "mySugr · foto 17.10")
+                                                val food = wellnessEntries.any { it.kind == "Ushqim" && it.detail.contains("17.10.2026 ·") }
+                                                if (!food) wellnessStore.add("Ushqim", "17.10.2026 · Mëngjes: pa ushqim. Rreth 16:00: mish qengji, pleskavicë, qebapa. Gjatë ditës: kafe, 1 banane, 1 mollë. Sasitë dhe oraret e tjera të papërcaktuara.")
+                                                readings = glucoseStore.all()
+                                                wellnessEntries = wellnessStore.all()
+                                                saveMessage = if (a || b || c || !food) "Të dhënat u ruajtën në telefon" else "Këto të dhëna janë regjistruar tashmë"
+                                            }) { Text("Ruaj matjet dhe ushqimin e 17.10") }
+                                            Text(saveMessage, color = Cyan)
+                                            Text("Nuk llogarit apo sugjeron dozë insuline.", color = Color.LightGray, fontSize = 12.sp)
+                                        }
+                                    }
+                                }
+                                item {
                                     Card(colors = CardDefaults.cardColors(containerColor = Panel), modifier = Modifier.fillMaxWidth(), onClick = { page = "bluetooth" }) {
                                         Column(Modifier.padding(18.dp)) {
                                             Text("Accu-Chek Guide · Roche 921", color = Cyan, fontSize = 16.sp)
