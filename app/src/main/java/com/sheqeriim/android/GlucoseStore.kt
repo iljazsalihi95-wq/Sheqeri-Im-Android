@@ -42,4 +42,17 @@ class GlucoseStore(context: Context) {
         return preferences.edit().putString("readings", arr.toString()).putBoolean(key, true).commit()
     }
 
+    /** Import a user-confirmed historical reading without changing its measurement time. */
+    @Synchronized
+    fun addHistorical(valueMgDl: Int, timeMillis: Long, note: String): Boolean {
+        if (valueMgDl !in 20..600 || timeMillis <= 0L) return false
+        if (all().any { it.valueMgDl == valueMgDl && kotlin.math.abs(it.timeMillis - timeMillis) < 60_000L }) return false
+        val arr = JSONArray()
+        (all() + GlucoseReading(valueMgDl, timeMillis, note))
+            .sortedByDescending { it.timeMillis }.take(1000).forEach {
+                arr.put(JSONObject().put("value", it.valueMgDl).put("time", it.timeMillis).put("note", it.note))
+            }
+        return preferences.edit().putString("readings", arr.toString()).commit()
+    }
+
 }
