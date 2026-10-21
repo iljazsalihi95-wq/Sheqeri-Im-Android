@@ -8,6 +8,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.content.Intent
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -207,6 +211,29 @@ class MainActivity : ComponentActivity() {
                                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                             Text("📈 Sot · Trend i glukozës", color = Cyan, fontSize = 19.sp)
                                             Text("${today.size} matje   •   Mesatarja $avg mg/dL", color = Color.White)
+                                            if (today.isNotEmpty()) {
+                                                val points = today.map { it.valueMgDl.toFloat() }
+                                                Canvas(Modifier.fillMaxWidth().height(175.dp).background(Color(0xFF0B2032), RoundedCornerShape(12.dp)).padding(12.dp)) {
+                                                    val low = 50f
+                                                    val high = 300f
+                                                    fun y(value: Float) = size.height * (1f - (value - low) / (high - low))
+                                                    val start = today.first().timeMillis
+                                                    val end = today.last().timeMillis
+                                                    fun x(index: Int): Float = if (end == start) size.width / 2f else size.width * ((today[index].timeMillis - start).toFloat() / (end - start).toFloat())
+                                                    drawRect(Color(0x2233AA66), topLeft = Offset(0f, y(180f)), size = androidx.compose.ui.geometry.Size(size.width, y(70f) - y(180f)))
+                                                    listOf(70f, 120f, 180f, 250f).forEach { level ->
+                                                        drawLine(Color(0xFF40566B), Offset(0f, y(level)), Offset(size.width, y(level)), strokeWidth = 1.dp.toPx())
+                                                    }
+                                                    today.forEachIndexed { index, reading ->
+                                                        if (index > 0) {
+                                                            drawLine(Cyan, Offset(x(index - 1), y(points[index - 1])), Offset(x(index), y(points[index])), strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round)
+                                                        }
+                                                        val dotColor = if (reading.valueMgDl < 70) Color(0xFFEF5350) else if (reading.valueMgDl > 180) Color(0xFFFFB74D) else Color(0xFF81C784)
+                                                        drawCircle(dotColor, radius = 6.dp.toPx(), center = Offset(x(index), y(points[index])))
+                                                    }
+                                                }
+                                                Text("Grafiku: koha e matjes → glukoza (50–300 mg/dL). Zona e hijezuar është orientuese.", color = Color.LightGray, fontSize = 11.sp)
+                                            }
                                             if (today.isEmpty()) {
                                                 Text("Nuk ka matje për sot", color = Color.LightGray)
                                             } else {
