@@ -110,6 +110,35 @@ class MainActivity : ComponentActivity() {
                                 item {
                                     Card(colors = CardDefaults.cardColors(containerColor = Panel), modifier = Modifier.fillMaxWidth()) {
                                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Text("📋 Ditari · 21.10.2026", color = Cyan, fontSize = 18.sp)
+                                            Text("09:54 · 110   |   12:22 · 93   |   14:18 · 121 mg/dL", color = Color.White)
+                                            Text("07:00 Jardiance (doza e pakonfirmuar). Rreth 14:20: insulinë 2 njësi, lloji i pakonfirmuar. Pa bukë deri në vaktin e pasdites: speca të përzhitur me djathë dhe bukë. Siofor 1000 mg i planifikuar pas vaktit.", color = Color.LightGray)
+                                            Button(onClick = {
+                                                fun at(day: Int, hour: Int, minute: Int): Long = java.util.Calendar.getInstance().apply {
+                                                    set(2026, java.util.Calendar.OCTOBER, day, hour, minute, 0)
+                                                    set(java.util.Calendar.MILLISECOND, 0)
+                                                }.timeInMillis
+                                                val a = glucoseStore.addHistorical(110, at(21, 9, 54), "mySugr · 21.10 · para vaktit")
+                                                val b = glucoseStore.addHistorical(93, at(21, 12, 22), "mySugr · 21.10")
+                                                val c = glucoseStore.addHistorical(121, at(21, 14, 18), "mySugr · 21.10")
+                                                val d = glucoseStore.addHistorical(88, at(20, 19, 37), "mySugr · 20.10")
+                                                val tag = "Ditar 21.10.2026 ·"
+                                                val already = wellnessEntries.any { it.detail.startsWith(tag) }
+                                                if (!already) {
+                                                    wellnessStore.add("Ditar", tag + " 07:00 Jardiance marrë (doza e pakonfirmuar); rreth 14:20 insulinë 2 njësi marrë (lloji i pakonfirmuar); pa bukë deri në vakt; speca të përzhitur, djathë, bukë; Siofor 1000 mg PLAN pas ushqimit, JO konfirmuar si marrë.")
+                                                }
+                                                readings = glucoseStore.all()
+                                                wellnessEntries = wellnessStore.all()
+                                                saveMessage = if (a || b || c || d || !already) "Ditari u ruajt në këtë telefon" else "Ditari është ruajtur tashmë"
+                                            }) { Text("Ruaj matjet dhe ditarin e 21.10") }
+                                            Text(saveMessage, color = Cyan)
+                                            Text("Siofor nuk shënohet si i marrë pa konfirmim. Nuk jepen doza insuline.", color = Color.LightGray, fontSize = 12.sp)
+                                        }
+                                    }
+                                }
+                                item {
+                                    Card(colors = CardDefaults.cardColors(containerColor = Panel), modifier = Modifier.fillMaxWidth()) {
+                                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                             Text("📋 Regjistrimi 17.10.2026", color = Cyan, fontSize = 18.sp)
                                             Text("07:21 · 109 | 12:13 · 99 | 21:12 · 158 mg/dL", color = Color.White)
                                             Text("Pa mëngjes. Rreth 16:00: mish qengji, pleskavicë, qebapa. Kafe, 1 banane, 1 mollë. Sasitë e mishit dhe oraret e frutave nuk janë përcaktuar.", color = Color.LightGray)
